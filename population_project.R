@@ -3,20 +3,12 @@
 
 # Libraries
 library(ggplot2) #for plots
-library(rlang)
-library(ggpubr) #for combining plots
+library(patchwork) #for combining plots
 library(emmeans) #for post hoc tests
 library(lmerTest) # for extracting p vals from mixed models
 library(lme4) # mixed models
-library(ggbump)
 library(drc) #for threshold models
-library(sandwich)
-library(lmtest)
-library(car) #for Levene test
-library(geiger)
-library(patchwork) #for combining plots
 library(dplyr)
-
 
 #read in data
 pop_data <- read.csv(file="pop_data.csv")
@@ -45,34 +37,14 @@ AZ_temp_data <- temp_photo_data |>
 CO_temp_data <- temp_photo_data |>
   filter(Population == "CO")
 
+####Plots####
 
-#Colors for plots
+#colors for plots
 colors <- c("#cc0000","#0086b3")
 AZcolor <- "#cc0000"
 COcolor <- "#0086b3"
 
-
-#visualize data
-hist(pop_data$larval_mass)
-hist(pop_data$pupal_mass)
-hist(pop_data$development_time)
-hist(pop_data$percent_G)
-hist(pop_data$darkness_G)
-
-boxplot(percent_G~full_treatment, data=pop_data)
-
-#descriptive stats
-pop_data %>%
-  group_by(full_treatment) %>%
-  summarize(Percent_mean = mean(percent_G, na.rm = TRUE),
-            Percent_sd = sd(percent_G, na.rm = TRUE),
-            Percent_var = var(percent_G, na.rm=TRUE),
-            Darkness_mean = mean(darkness_G, na.rm = TRUE),
-            Darkness_sd = sd(darkness_G, na.rm = TRUE),
-            Darkness_var = var(percent_G, na.rm=TRUE),) %>%
-  as.data.frame
-
-#Melanin plots
+#melanin plots
 area<-ggplot(pop_data, aes(x=photoperiod, y=percent_G)) +
   stat_summary(aes(group=pop_origin, color=pop_origin), 
                fun.data="mean_sd", shape="square", size=1, position = position_dodge(width = 0.2)) + 
@@ -97,11 +69,6 @@ darkness
 #combine plots with patchwork
 area + darkness + plot_layout(guides="collect", axes="collect") + 
   plot_annotation(tag_levels = 'A')
-
-#combine plots with ggarrange 
-ggarrange(area, darkness,
-          font.label=list(family="Times New Roman"),labels=c("A", "B"), 
-          ncol = 2, hjust=-6.5, widths = c(1,1.3))
 
 #LH plots
 larval_size<-ggplot(pop_data, aes(x=photoperiod, y=larval_mass)) +
@@ -134,134 +101,141 @@ devo_time<-ggplot(pop_data, aes(x=photoperiod, y=development_time)) +
   ylab("Development time") +  xlab("Photoperiod") 
 devo_time
 
-#combine plots with ggarrange
-ggarrange(devo_time, larval_size, pupal_size,
-          font.label=list(family="Times New Roman"),labels=c("A", "B", "C"), 
-          ncol = 3, hjust=-6.5, widths=c(0.9,0.9,1.4))
-
 #combine plots with patchwork
-devo_time + larval_size + plot_layout(guides="collect", axes="collect") + 
+devo_time + larval_size + pupal_size + plot_layout(guides="collect", axes="collect") + 
   plot_annotation(tag_levels = 'A')
 
+####Stats####
 
-#Statistics
+#descriptive stats
+pop_data %>%
+  group_by(full_treatment) %>%
+  summarize(Percent_mean = mean(percent_G, na.rm = TRUE),
+            Percent_sd = sd(percent_G, na.rm = TRUE),
+            Percent_var = var(percent_G, na.rm=TRUE),
+            Darkness_mean = mean(darkness_G, na.rm = TRUE),
+            Darkness_sd = sd(darkness_G, na.rm = TRUE),
+            Darkness_var = var(percent_G, na.rm=TRUE),) %>%
+  as.data.frame
+
+#models
 avg_mod <- lm(percent_G ~ full_treatment, data=pop_data, na.action = na.exclude)
 summary(avg_mod)
 emmeans(avg_mod, specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(avg_mod)) 
+qqnorm(residuals(avg_mod)) #normality of residuals
+plot(fitted(avg_mod), residuals(avg_mod)) #homoscedasticity 
 
 avg_mod2 <- lm(percent_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data, na.action = na.exclude)
 summary(avg_mod2)
 qqnorm(residuals(avg_mod2)) 
+plot(fitted(avg_mod2), residuals(avg_mod2))
 
 darkness_mod <- lm(gray_G ~ full_treatment, data=pop_data)
 summary(darkness_mod)
 emmeans(darkness_mod, specs="full_treatment") |> pairs(adjust="tukey")
 qqnorm(residuals(avg_mod)) 
+plot(fitted(darkness_mod), residuals(darkness_mod))
 
 darkness_mod2 <- lm(gray_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data)
 summary(darkness_mod2)
 qqnorm(residuals(avg_mod2)) 
+plot(fitted(darkness_mod2), residuals(darkness_mod2))
 
 larval_size_mod <- lm(larval_mass ~ full_treatment, data=pop_data)
 summary(larval_size_mod)
 emmeans(larval_size_mod, specs="full_treatment") |> pairs(adjust="tukey")
 qqnorm(residuals(larval_size_mod)) 
+plot(fitted(larval_size_mod), residuals(larval_size_mod))
 
 larval_size_mod2 <- lm(larval_mass ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, data=pop_data)
 summary(larval_size_mod2)
 qqnorm(residuals(larval_size_mod2)) 
+plot(fitted(larval_size_mod2), residuals(larval_size_mod2))
 
 devo_mod <- glm(development_time ~ full_treatment, family = poisson(), data=pop_data)
 summary(devo_mod)
 emmeans(devo_mod, specs="full_treatment") |> pairs(adjust="tukey")
 qqnorm(residuals(size_mod)) 
+plot(fitted(devo_mod), residuals(devo_mod))
 
 devo_mod2 <- glm(development_time ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, family = poisson(), data=pop_data)
 summary(devo_mod2)
 qqnorm(residuals(size_mod)) 
+plot(fitted(devo_mod2), residuals(devo_mod2))
 
 pupal_size_mod <- lm(pupal_mass ~ full_treatment, data=pop_data)
 summary(pupal_size_mod )
 emmeans(pupal_size_mod , specs="full_treatment") |> pairs(adjust="tukey")
 qqnorm(residuals(pupal_size_mod )) 
+plot(fitted(pupal_size_mod), residuals(pupal_size_mod))
 
 pupal_size_mod2 <- lm(pupal_mass ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, data=pop_data)
 summary(pupal_size_mod2)
 qqnorm(residuals(pupal_size_mod2)) 
-
-variance <- leveneTest(percent_G ~ full_treatment, data=pop_data, na.action = na.exclude)
-emmeans(variance)
+plot(fitted(pupal_size_mod2), residuals(pupal_size_mod2))
 
 
 #### Which models fit the data best? ####
-#Darkness
 
+#Darkness
 #Linear
 AZ_linear_dark<-lm(darkness_G~photoperiod, data=AZ_data)
-summary(AZ_linear)
+summary(AZ_linear_dark)
 
 CO_linear_dark<-lm(darkness_G~photoperiod, data=CO_data)
-summary(CO_linear)
+summary(CO_linear_dark)
 
 #Polynomial
 AZ_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
-summary(AZ_polynomial)
+summary(AZ_polynomial_dark)
 
 CO_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=CO_data)
-summary(CO_polynomial)
+summary(CO_polynomial_dark)
 
-AIC(AZ_threshold4, AZ_linear, AZ_logistic, AZ_polynomial)
-#for both populations linear is best model
+#Treshold (log-logistic)
+AZ_threshold_dark <- drm(darkness_G~photoperiod, data=AZ_data, fct=LL.4())
+summary(AZ_threshold_dark)
+
+CO_threshold_dark <- drm(darkness_G~photoperiod, data=CO_data, fct=LL.4())
+summary(CO_threshold_dark)
+
+#Compare models with AIC- for both populations linear is best model
+AIC(AZ_linear_dark, AZ_polynomial_dark, AZ_threshold_dark)
+AIC(CO_linear_dark, CO_polynomial_dark, CO_threshold_dark)
 
 #Percent Melanin
 #Linear
-AZ_linear<-lm(darkness_G~photoperiod, data=AZ_data)
+AZ_linear<-lm(percent_G~photoperiod, data=AZ_data)
 summary(AZ_linear)
 
-CO_linear<-lm(darkness_G~photoperiod, data=CO_data)
+CO_linear<-lm(percent_G~photoperiod, data=CO_data)
 summary(CO_linear)
 
 #Polynomial
-AZ_polynomial <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
+AZ_polynomial <- lm(percent_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
 summary(AZ_polynomial)
 
-CO_polynomial <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=CO_data)
+CO_polynomial <- lm(percent_G ~ photoperiod + I(photoperiod^2), data=CO_data)
 summary(CO_polynomial)
 
-#Logistic
-AZ_logistic <- nls(darkness_G ~ SSlogis(photoperiod, Asym, xmid, scal), data=AZ_data)
-summary(AZ_logistic)
-
-CO_logistic <- nls(darkness_G ~ SSlogis(photoperiod, Asym, xmid, scal), data=CO_data)
-summary(CO_logistic)
-
-anova(AZ_logistic, CO_logistic)
-
 #Treshold (log-logistic)
-AZ_threshold4 <- drm(percent_G~photoperiod, data=AZ_data, fct=LL.4())
-summary(AZ_threshold4)
+AZ_threshold <- drm(percent_G~photoperiod, data=AZ_data, fct=LL.4())
+summary(AZ_threshold)
 
-CO_threshold4 <- drm(percent_G~photoperiod, data=CO_data, fct=LL.4())
-summary(CO_threshold4)
+CO_threshold <- drm(percent_G~photoperiod, data=CO_data, fct=LL.4())
+summary(CO_threshold)
 
-#Compare models with AIC
-AIC(AZ_threshold4, AZ_linear, AZ_logistic, AZ_polynomial)
+#Compare models with AIC- for both populations threshold is best model
+AIC(AZ_threshold, AZ_linear, AZ_polynomial)
 
-AIC(CO_threshold4, CO_linear, CO_logistic, CO_polynomial)
-#for both populations threshold is best model
+AIC(CO_threshold, CO_linear,CO_polynomial)
 
-
-#Population comparisons and parameters for log logistic model
+#compare population parameter estimates for threshold models
 joint_threshold<-drm(percent_G~photoperiod, pop_origin, data=pop_data, fct=LL.4())
-summary(joint_threshold)
 
-joint_threshold_simple <- drm(percent_G~photoperiod, data=pop_data, fct=LL.4())
-joint_linear<-lm(percent_G~photoperiod + pop_origin, data=pop_data)
-
-AIC(joint_threshold, joint_linear)
-
-anova(joint_threshold, joint_threshold_simple)
+compParm(joint_threshold, "b")
+compParm(joint_threshold, "c")
+compParm(joint_threshold, "d")
 compParm(joint_threshold, "e")
 
 #Treshold figure
@@ -308,17 +282,12 @@ ggplot()+
   xlab("Photoperiod") + ylab("Percent melanic area (%)")+
   ylim(0,85) + scale_x_continuous(breaks=seq(10,16, by=2))
 
-
-#combine plots with ggarrange
-ggarrange(AZ_threshold_plot, CO_threshold_plot,
-          font.label=list(family="Times New Roman"), 
-          labels=c("A", "B"))
-
 #combine plots with patchwork
 AZ_threshold_plot + CO_threshold_plot + plot_layout(guides="collect", axes="collect")
 
 
 #### Temp/ Photo Data ####
+
 daily_max_AZ <- lm(Daily_max ~ Daylength, AZ_temp_data)
 summary(daily_max_AZ)
 
@@ -350,11 +319,6 @@ daily_min_plot <-ggplot() +
   annotate(geom="text", x=c(10.5, 14), y=c(21, 8), label=c(expression("AZ:"~r^2~"=0.41"), expression("CO:"~r^2~"=0.30"))) + 
   xlab("Photoperiod") +  ylab("Daily minimum\ntemperature (°C)") 
 daily_min_plot
-
-#combine plots with ggarrange
-ggarrange(daily_max_plot, daily_min_plot,
-          font.label=list(family="Times New Roman"), 
-          labels=c("A", "B"), widths=c(1,1))
 
 #combine plots with patchwork
 daily_max_plot + daily_min_plot + plot_layout(guides="collect", axes="collect") + 
