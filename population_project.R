@@ -118,6 +118,10 @@ pop_data %>%
             Darkness_var = var(percent_G, na.rm=TRUE),) %>%
   as.data.frame
 
+pop_data <- pop_data |>
+  mutate(photoperiod=as.factor(photoperiod))
+  
+
 #models
 avg_mod <- lm(percent_G ~ full_treatment, data=pop_data, na.action = na.exclude)
 summary(avg_mod)
@@ -126,7 +130,16 @@ qqnorm(residuals(avg_mod)) #normality of residuals
 plot(fitted(avg_mod), residuals(avg_mod)) #homoscedasticity 
 
 avg_mod2 <- lm(percent_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data, na.action = na.exclude)
-summary(avg_mod2)
+anova(avg_mod2)
+
+emm_results <- emmeans(avg_mod2, ~ pop_origin * photoperiod)
+pairwise_comparisons <- contrast(emm_results, method = "pairwise", adjust = "tukey")
+summary(pairwise_comparisons)
+
+
+emmeans(avg_mod2, specs = ~ "pop_origin:photoperiod", var = "photoperiod") |> pairs(adjust="tukey")
+pairs(grid,  simple = "photoperiod")
+  pairs(adjust="tukey")
 qqnorm(residuals(avg_mod2)) 
 plot(fitted(avg_mod2), residuals(avg_mod2))
 
@@ -189,6 +202,10 @@ summary(CO_linear_dark)
 AZ_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
 summary(AZ_polynomial_dark)
 
+
+predicted_values_ci <- predict(AZ_polynomial_dark, newdata = AZ_data, interval = "confidence")
+print(predicted_values_ci)
+
 CO_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=CO_data)
 summary(CO_polynomial_dark)
 
@@ -239,7 +256,7 @@ compParm(joint_threshold, "d")
 compParm(joint_threshold, "e")
 
 #Treshold figure
-pm_AZ <- predict(AZ_threshold4, newdata=AZ_data, interval="confidence")
+pm_AZ <- predict(AZ_threshold, newdata=AZ_data, interval="confidence")
 AZ_data$p <- pm_AZ[,1]
 AZ_data$pmin <- pm_AZ[,2]
 AZ_data$pmax <- pm_AZ[,3]
@@ -255,7 +272,7 @@ AZ_threshold_plot<-ggplot(AZ_data, aes(x = photoperiod, y = percent_G)) +
   ggtitle("Arizona")
 AZ_threshold_plot
 
-pm_CO <- predict(CO_threshold4, newdata=CO_data, interval="confidence")
+pm_CO <- predict(CO_threshold, newdata=CO_data, interval="confidence")
 CO_data$p <- pm_CO[,1]
 CO_data$pmin <- pm_CO[,2]
 CO_data$pmax <- pm_CO[,3]
@@ -284,6 +301,40 @@ ggplot()+
 
 #combine plots with patchwork
 AZ_threshold_plot + CO_threshold_plot + plot_layout(guides="collect", axes="collect")
+
+
+pm_AZ_darkness <- predict(AZ_polynomial_dark, newdata=AZ_data, interval="confidence")
+AZ_data$dark_p <- pm_AZ_darkness[,1]
+AZ_data$dark_pmin <- pm_AZ_darkness[,2]
+AZ_data$dark_pmax <- pm_AZ_darkness[,3]
+
+
+
+AZ_poly_plot<-ggplot() +
+  geom_jitter(data = AZ_data, aes(x = photoperiod, y = darkness_G), width=0.5, color=AZcolor, alpha=0.7) +
+  geom_ribbon(data=predictions, aes(x=photoperiod, y=fit, ymin=lwr, ymax=upr), alpha=0.2, fill=AZcolor) +
+  geom_line(data=predictions, aes(x=photoperiod, y=fit), color=AZcolor) +
+  #stat_summary(fun.data="mean_sd", shape="square", size=0.7, color=AZcolor) + 
+  theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
+  xlab("Photoperiod") + ylab("Darkness")+
+  ylim(10,25) + scale_x_continuous(breaks=seq(10,16, by=2)) +
+  ggtitle("Arizona")
+AZ_poly_plot
+
+
+new_data <- expand.grid(
+  photoperiod = seq(10, 16, by = 0.5)      
+)
+
+predicted_values <- predict(AZ_polynomial_dark, newdata = new_data, interval="confidence")
+
+predictions <- cbind(new_data, predicted_values)
+print(prediction_results)
+
+ggplot(new_data, aes(x=photoperiod, y=fit)) + 
+  geom_ribbon(data=AZ_data, aes(y=dark_p, ymin=dark_pmin, ymax=dark_pmax), alpha=0.2, fill=AZcolor) +
+  geom_line(aes(y=dark_p), color=AZcolor) 
+
 
 
 #### Temp/ Photo Data ####
