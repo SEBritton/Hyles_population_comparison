@@ -17,7 +17,8 @@ temp_month_data <- read.csv(file="monthly_averages.csv")
 
 #modify data as needed
 pop_data <- pop_data |>
-  mutate(photoperiod=as.numeric(photoperiod)) |>
+  mutate(photoperiod=as.factor(photoperiod)) |>
+  mutate(photoperiod_num = as.numeric(as.character(photoperiod))) |>
   mutate(full_treatment=as.factor(full_treatment)) |>
   mutate(pop_origin=as.factor(pop_origin)) |>
   mutate(sex = if_else(sex == "", NA_character_, sex)) |>
@@ -26,14 +27,16 @@ pop_data <- pop_data |>
 temp_photo_data <- temp_photo_data |>
   mutate(Population=as.factor(Population))
 
-#split data up by population
+#split data up by population, needed for some analyses 
 AZ_data <- pop_data |>
-  filter(pop_origin=="AZ")
+  filter(pop_origin=="AZ") 
+
 CO_data <- pop_data |>
-  filter(pop_origin=="CO")
+  filter(pop_origin=="CO") 
 
 AZ_temp_data <- temp_photo_data |>
   filter(Population == "AZ")
+
 CO_temp_data <- temp_photo_data |>
   filter(Population == "CO")
 
@@ -47,21 +50,25 @@ COcolor <- "#0086b3"
 #melanin plots
 area<-ggplot(pop_data, aes(x=photoperiod, y=percent_G)) +
   stat_summary(aes(group=pop_origin, color=pop_origin), 
-               fun.data="mean_sd", shape="square", size=1, position = position_dodge(width = 0.2)) + 
-  geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2) +
+               fun=mean, shape="square", size=1, position = position_dodge(width = 0.2)) + 
+  stat_summary(aes(group=pop_origin, color=pop_origin),
+    fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},
+    geom = "errorbar", width = 0.2,position = position_dodge(widt=0.2)) +
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(10, 12, 14, 16), y=c(74, 74, 45, 30), label=c("***", "***", "ns", "ns"), size=5) + 
+  annotate(geom="text", x=c(1, 2, 3, 4), y=c(74, 74, 45, 30), label=c("***", "***", "ns", "ns"), size=5) + 
   ylab("Percent melanic area (%)") +  xlab("Photoperiod") +  ylim(0,80)
 area
 
 darkness<-ggplot(pop_data, aes(x=photoperiod, y=darkness_G)) +
+  stat_summary(aes(group=pop_origin, color=pop_origin), 
+               fun=mean, shape="square", size=1, position = position_dodge(width = 0.2)) + 
   stat_summary(aes(group=pop_origin, color=pop_origin),
-               fun.data="mean_sd", shape="square", size=1, position = position_dodge(width = 0.2)) +
-  geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2, show.legend = FALSE)+
+               fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},
+               geom = "errorbar", width = 0.2,position = position_dodge(widt=0.2)) +
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(10, 12, 14, 16), y=c(21.8, 21.5, 20.7, 19.5), label=c("ns", "**", "ns", "ns"), size=5) + 
+  annotate(geom="text", x=c(1, 2, 3, 4), y=c(21.8, 21.5, 20.7, 19.5), label=c("ns", "**", "ns", "ns"), size=5) + 
   ylab("Darkness") +  xlab("Photoperiod") + labs(color="Population Origin") +
   ylim(15,22)
 darkness
@@ -70,11 +77,11 @@ darkness
 area + darkness + plot_layout(guides="collect", axes="collect") + 
   plot_annotation(tag_levels = 'A')
 
-#LH plots
+#LH plots- fix these!!
 larval_size<-ggplot(pop_data, aes(x=photoperiod, y=larval_mass)) +
   stat_summary(aes(group=pop_origin, color=pop_origin), 
                fun.data="mean_sd", shape="square", size=01, position = position_dodge(width = 0.2)) + 
-  geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2)+
+  #geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2)+
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
   annotate(geom="text", x=c(10, 12, 14, 16), y=c(6, 6.4, 6.4, 7), label=c("ns", "**", "ns", "***"), size=5) + 
@@ -84,7 +91,7 @@ larval_size
 pupal_size<-ggplot(pop_data, aes(x=photoperiod, y=pupal_mass)) +
   stat_summary(aes(group=pop_origin, color=pop_origin), 
                fun.data="mean_sd", shape="square", size=1, position = position_dodge(width = 0.2)) + 
-  geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2, show.legend = FALSE)+
+  #geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2, show.legend = FALSE)+
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(text=element_text(family="Times New Roman")) +
   annotate(geom="text", x=c(10, 12, 14, 16), y=c(3.8, 3.9, 3.9, 4.3), label=c("ns", "ns", "ns", "ns"), size=5) + 
@@ -94,7 +101,7 @@ pupal_size
 devo_time<-ggplot(pop_data, aes(x=photoperiod, y=development_time)) +
   stat_summary(aes(group=pop_origin, color=pop_origin), 
                fun.data="mean_sd", shape="square", size=1, position = position_dodge(width = 0.2)) + 
-  geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2)+
+  #geom_smooth(aes(group=pop_origin, color=pop_origin, fill=pop_origin), method="lm", alpha=0.2)+
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
   annotate(geom="text", x=c(10, 12, 14, 16), y=c(8.3, 8.3, 8.5, 8.5), label=c("ns", "ns", "ns", "ns"), size=5) + 
@@ -118,69 +125,44 @@ pop_data %>%
             Darkness_var = var(percent_G, na.rm=TRUE),) %>%
   as.data.frame
 
-pop_data <- pop_data |>
-  mutate(photoperiod=as.factor(photoperiod))
-  
+#Models
+#percent melanic area
+#use photoperiod as a factor
+area_mod <- lm(percent_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data, na.action = na.exclude)
 
-#models
-avg_mod <- lm(percent_G ~ full_treatment, data=pop_data, na.action = na.exclude)
-summary(avg_mod)
-emmeans(avg_mod, specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(avg_mod)) #normality of residuals
-plot(fitted(avg_mod), residuals(avg_mod)) #homoscedasticity 
-
-avg_mod2 <- lm(percent_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data, na.action = na.exclude)
-anova(avg_mod2)
-
-emm_results <- emmeans(avg_mod2, ~ pop_origin * photoperiod)
-pairwise_comparisons <- contrast(emm_results, method = "pairwise", adjust = "tukey")
-summary(pairwise_comparisons)
-
-
-emmeans(avg_mod2, specs = ~ "pop_origin:photoperiod", var = "photoperiod") |> pairs(adjust="tukey")
-pairs(grid,  simple = "photoperiod")
-  pairs(adjust="tukey")
+#check assumptions
 qqnorm(residuals(avg_mod2)) 
 plot(fitted(avg_mod2), residuals(avg_mod2))
 
-darkness_mod <- lm(gray_G ~ full_treatment, data=pop_data)
-summary(darkness_mod)
-emmeans(darkness_mod, specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(avg_mod)) 
+#results and post-hoc comparisons 
+anova(area_mod)
+area_mod_compare <- emmeans(area_mod, ~ pop_origin * photoperiod)
+summary(contrast(area_mod_compare, method = "pairwise", adjust = "tukey"))
+
+#darkness
+#use photoperiod as a factor
+darkness_mod <- lm(gray_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data)
+
+#check assumptions
+qqnorm(residuals(darkness_mod)) 
 plot(fitted(darkness_mod), residuals(darkness_mod))
 
-darkness_mod2 <- lm(gray_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data)
-summary(darkness_mod2)
-qqnorm(residuals(avg_mod2)) 
-plot(fitted(darkness_mod2), residuals(darkness_mod2))
+#results and post-hoc comparisons 
+anova(darkness_mod)
+darkness_mod_compare <- emmeans(darkness_mod, ~ pop_origin * photoperiod)
+summary(contrast(darkness_mod_compare, method = "pairwise", adjust = "tukey"))
 
-larval_size_mod <- lm(larval_mass ~ full_treatment, data=pop_data)
-summary(larval_size_mod)
-emmeans(larval_size_mod, specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(larval_size_mod)) 
-plot(fitted(larval_size_mod), residuals(larval_size_mod))
 
+#fix these!!#
 larval_size_mod2 <- lm(larval_mass ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, data=pop_data)
 summary(larval_size_mod2)
 qqnorm(residuals(larval_size_mod2)) 
 plot(fitted(larval_size_mod2), residuals(larval_size_mod2))
 
-devo_mod <- glm(development_time ~ full_treatment, family = poisson(), data=pop_data)
-summary(devo_mod)
-emmeans(devo_mod, specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(size_mod)) 
-plot(fitted(devo_mod), residuals(devo_mod))
-
 devo_mod2 <- glm(development_time ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, family = poisson(), data=pop_data)
 summary(devo_mod2)
 qqnorm(residuals(size_mod)) 
 plot(fitted(devo_mod2), residuals(devo_mod2))
-
-pupal_size_mod <- lm(pupal_mass ~ full_treatment, data=pop_data)
-summary(pupal_size_mod )
-emmeans(pupal_size_mod , specs="full_treatment") |> pairs(adjust="tukey")
-qqnorm(residuals(pupal_size_mod )) 
-plot(fitted(pupal_size_mod), residuals(pupal_size_mod))
 
 pupal_size_mod2 <- lm(pupal_mass ~ pop_origin + photoperiod + pop_origin*photoperiod + sex, data=pop_data)
 summary(pupal_size_mod2)
@@ -189,57 +171,28 @@ plot(fitted(pupal_size_mod2), residuals(pupal_size_mod2))
 
 
 #### Which models fit the data best? ####
+#For these I used photoperiod as numeric so we could test all the models
 
-#Darkness
+#Percent Melanic area
 #Linear
-AZ_linear_dark<-lm(darkness_G~photoperiod, data=AZ_data)
-summary(AZ_linear_dark)
-
-CO_linear_dark<-lm(darkness_G~photoperiod, data=CO_data)
-summary(CO_linear_dark)
-
-#Polynomial
-AZ_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
-summary(AZ_polynomial_dark)
-
-
-predicted_values_ci <- predict(AZ_polynomial_dark, newdata = AZ_data, interval = "confidence")
-print(predicted_values_ci)
-
-CO_polynomial_dark <- lm(darkness_G ~ photoperiod + I(photoperiod^2), data=CO_data)
-summary(CO_polynomial_dark)
-
-#Treshold (log-logistic)
-AZ_threshold_dark <- drm(darkness_G~photoperiod, data=AZ_data, fct=LL.4())
-summary(AZ_threshold_dark)
-
-CO_threshold_dark <- drm(darkness_G~photoperiod, data=CO_data, fct=LL.4())
-summary(CO_threshold_dark)
-
-#Compare models with AIC- for both populations linear is best model
-AIC(AZ_linear_dark, AZ_polynomial_dark, AZ_threshold_dark)
-AIC(CO_linear_dark, CO_polynomial_dark, CO_threshold_dark)
-
-#Percent Melanin
-#Linear
-AZ_linear<-lm(percent_G~photoperiod, data=AZ_data)
+AZ_linear<-lm(percent_G~photoperiod_num, data=AZ_data)
 summary(AZ_linear)
 
-CO_linear<-lm(percent_G~photoperiod, data=CO_data)
+CO_linear<-lm(percent_G~photoperiod_num, data=CO_data)
 summary(CO_linear)
 
 #Polynomial
-AZ_polynomial <- lm(percent_G ~ photoperiod + I(photoperiod^2), data=AZ_data)
+AZ_polynomial <- lm(percent_G ~ photoperiod_num + I(photoperiod_num^2), data=AZ_data)
 summary(AZ_polynomial)
 
-CO_polynomial <- lm(percent_G ~ photoperiod + I(photoperiod^2), data=CO_data)
+CO_polynomial <- lm(percent_G ~ photoperiod_num + I(photoperiod_num^2), data=CO_data)
 summary(CO_polynomial)
 
 #Treshold (log-logistic)
-AZ_threshold <- drm(percent_G~photoperiod, data=AZ_data, fct=LL.4())
+AZ_threshold <- drm(percent_G~photoperiod_num, data=AZ_data, fct=LL.4())
 summary(AZ_threshold)
 
-CO_threshold <- drm(percent_G~photoperiod, data=CO_data, fct=LL.4())
+CO_threshold <- drm(percent_G~photoperiod_num, data=CO_data, fct=LL.4())
 summary(CO_threshold)
 
 #Compare models with AIC- for both populations threshold is best model
@@ -255,86 +208,107 @@ compParm(joint_threshold, "c")
 compParm(joint_threshold, "d")
 compParm(joint_threshold, "e")
 
-#Treshold figure
-pm_AZ <- predict(AZ_threshold, newdata=AZ_data, interval="confidence")
-AZ_data$p <- pm_AZ[,1]
-AZ_data$pmin <- pm_AZ[,2]
-AZ_data$pmax <- pm_AZ[,3]
+#Darkness
+#Linear
+AZ_linear_dark<-lm(darkness_G~photoperiod_num, data=AZ_data)
+summary(AZ_linear_dark)
 
-AZ_threshold_plot<-ggplot(AZ_data, aes(x = photoperiod, y = percent_G)) +
-  geom_jitter(width=0.5, color=AZcolor, alpha=0.7) +
-  geom_ribbon(data=AZ_data, aes(y=p, ymin=pmin, ymax=pmax), alpha=0.2, fill=AZcolor) +
-  geom_line(aes(y=p), color=AZcolor) +
-  stat_summary(fun.data="mean_sd", shape="square", size=0.7, color=AZcolor) + 
+CO_linear_dark<-lm(darkness_G~photoperiod_num, data=CO_data)
+summary(CO_linear_dark)
+
+#Polynomial
+AZ_polynomial_dark <- lm(darkness_G ~ photoperiod_num + I(photoperiod_num^2), data=AZ_data)
+summary(AZ_polynomial_dark)
+
+CO_polynomial_dark <- lm(darkness_G ~ photoperiod_num + I(photoperiod_num^2), data=CO_data)
+summary(CO_polynomial_dark)
+
+#Treshold (log-logistic)
+AZ_threshold_dark <- drm(darkness_G~photoperiod_num, data=AZ_data, fct=LL.4())
+summary(AZ_threshold_dark)
+
+CO_threshold_dark <- drm(darkness_G~photoperiod_num, data=CO_data, fct=LL.4())
+summary(CO_threshold_dark)
+
+#Compare models with AIC
+AIC(AZ_linear_dark, AZ_polynomial_dark, AZ_threshold_dark)
+#polynomial ~ threshold > linear
+
+AIC(CO_linear_dark, CO_polynomial_dark, CO_threshold_dark)
+#linear ~ polynomial > threshold
+
+#Treshold figure for AZ percent melanic area
+new_data1 <- expand.grid(
+  photoperiod = seq(10, 16, by = 0.1))
+predicted_values1 <- predict(AZ_threshold, newdata = new_data1, interval="confidence")
+predictions1 <- cbind(new_data1, predicted_values1)
+print(predictions1)
+
+AZ_threshold_plot<-ggplot(AZ_data, aes(x = photoperiod_num, y = percent_G)) +
+  geom_jitter(width=0.2, color=AZcolor, alpha=0.7) +
+  geom_ribbon(data=predictions1, aes(x=photoperiod, y=Prediction, ymin=Lower, ymax=Upper), alpha=0.2, fill=AZcolor) +
+  geom_line(data=predictions1, aes(x=photoperiod, y=Prediction),color=AZcolor) +
   theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
   xlab("Photoperiod") + ylab("Percent melanic area (%)")+
   ylim(0,85) + scale_x_continuous(breaks=seq(10,16, by=2)) +
   ggtitle("Arizona")
 AZ_threshold_plot
 
-pm_CO <- predict(CO_threshold, newdata=CO_data, interval="confidence")
-CO_data$p <- pm_CO[,1]
-CO_data$pmin <- pm_CO[,2]
-CO_data$pmax <- pm_CO[,3]
+#Treshold figure for CO percent melanic area 
+new_data2 <- expand.grid(
+  photoperiod = seq(10, 16, by = 0.1))
+predicted_values2 <- predict(CO_threshold, newdata = new_data2, interval="confidence")
+predictions2 <- cbind(new_data2, predicted_values2)
+print(predictions2)
 
-CO_threshold_plot<-ggplot(CO_data, aes(x = photoperiod, y = percent_G)) +
-  geom_jitter(width=0.5, color=COcolor, alpha=0.7) +
-  geom_ribbon(data=CO_data, aes(y=p, ymin=pmin, ymax=pmax), alpha=0.2, fill=COcolor) +
-  geom_line(aes(y=p), color=COcolor) +
-  stat_summary(fun.data="mean_sd", shape="square", size=0.7, color=COcolor) + 
+CO_threshold_plot<-ggplot(data = CO_data, aes(x = photoperiod_num, y = percent_G)) +
+  geom_jitter(width=0.2, color=COcolor, alpha=0.7) +
+  geom_ribbon(data=predictions2, aes(x=photoperiod, y=Prediction, ymin=Lower, ymax=Upper), alpha=0.2, fill=COcolor) +
+  geom_line(data=predictions2, aes(x=photoperiod, y=Prediction), color=COcolor) +
   theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
   xlab("Photoperiod") + ylab("Percent melanic area (%)")+
   ylim(0,85) + scale_x_continuous(breaks=seq(10,16, by=2)) +
   ggtitle("Colorado")
 CO_threshold_plot
 
-ggplot()+
-  geom_ribbon(data=CO_data, aes(x=photoperiod, y=p, ymin=pmin, ymax=pmax), alpha=0.2, fill=COcolor) +
-  geom_line(data=CO_data, aes(x=photoperiod, y=p), color=COcolor) +
-  stat_summary(data=CO_data,aes(x=photoperiod, y=percent_G), fun.data="mean_sd", shape="square", size=0.7, color=COcolor) + 
-  geom_ribbon(data=AZ_data, aes(x=photoperiod, y=p, ymin=pmin, ymax=pmax), alpha=0.2, fill=AZcolor) +
-  geom_line(data=AZ_data, aes(x=photoperiod, y=p), color=AZcolor) +
-  stat_summary(data=AZ_data, aes(x=photoperiod, y=percent_G), fun.data="mean_sd", shape="square", size=0.7, color=AZcolor) +
-  theme_classic(base_size = 20)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
-  xlab("Photoperiod") + ylab("Percent melanic area (%)")+
-  ylim(0,85) + scale_x_continuous(breaks=seq(10,16, by=2))
-
 #combine plots with patchwork
-AZ_threshold_plot + CO_threshold_plot + plot_layout(guides="collect", axes="collect")
+AZ_threshold_plot + CO_threshold_plot + plot_layout(guides="collect")
 
 
-pm_AZ_darkness <- predict(AZ_polynomial_dark, newdata=AZ_data, interval="confidence")
-AZ_data$dark_p <- pm_AZ_darkness[,1]
-AZ_data$dark_pmin <- pm_AZ_darkness[,2]
-AZ_data$dark_pmax <- pm_AZ_darkness[,3]
+#Polynomial plot for AZ darkness
+new_data3 <- expand.grid(
+  photoperiod_num = seq(10, 16, by = 0.1))
+predicted_values3 <- predict(AZ_polynomial_dark, newdata = new_data3, interval="confidence")
+predictions3 <- cbind(new_data3, predicted_values3)
+print(predictions3) 
 
-
-
-AZ_poly_plot<-ggplot() +
-  geom_jitter(data = AZ_data, aes(x = photoperiod, y = darkness_G), width=0.5, color=AZcolor, alpha=0.7) +
-  geom_ribbon(data=predictions, aes(x=photoperiod, y=fit, ymin=lwr, ymax=upr), alpha=0.2, fill=AZcolor) +
-  geom_line(data=predictions, aes(x=photoperiod, y=fit), color=AZcolor) +
-  #stat_summary(fun.data="mean_sd", shape="square", size=0.7, color=AZcolor) + 
+AZ_poly_plot<-ggplot(data = AZ_data, aes(x = photoperiod_num, y = darkness_G)) +
+  geom_jitter(width=0.2, color=AZcolor, alpha=0.7) +
+  geom_ribbon(data=predictions3, aes(x=photoperiod_num, y=fit, ymin=lwr, ymax=upr), alpha=0.2, fill=AZcolor) +
+  geom_line(data=predictions3, aes(x=photoperiod_num, y=fit), color=AZcolor) +
   theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
   xlab("Photoperiod") + ylab("Darkness")+
   ylim(10,25) + scale_x_continuous(breaks=seq(10,16, by=2)) +
   ggtitle("Arizona")
 AZ_poly_plot
 
+#Polynomial plot for CO darkness
+new_data4 <- expand.grid(
+  photoperiod_num = seq(10, 16, by = 0.1))
+predicted_values4 <- predict(CO_polynomial_dark, newdata = new_data4, interval="confidence")
+predictions4 <- cbind(new_data4, predicted_values4)
+print(predictions4) 
 
-new_data <- expand.grid(
-  photoperiod = seq(10, 16, by = 0.5)      
-)
+CO_poly_plot<-ggplot(data = AZ_data, aes(x = photoperiod_num, y = darkness_G)) +
+  geom_jitter(width=0.2, color=COcolor, alpha=0.7) +
+  geom_ribbon(data=predictions4, aes(x=photoperiod_num, y=fit, ymin=lwr, ymax=upr), alpha=0.2, fill=COcolor) +
+  geom_line(data=predictions4, aes(x=photoperiod_num, y=fit), color=COcolor) +
+  theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman") , plot.title = element_text(hjust=0.5)) +
+  xlab("Photoperiod") + ylab("Darkness")+
+  ylim(10,25) + ggtitle("Colorado")
+CO_poly_plot
 
-predicted_values <- predict(AZ_polynomial_dark, newdata = new_data, interval="confidence")
-
-predictions <- cbind(new_data, predicted_values)
-print(prediction_results)
-
-ggplot(new_data, aes(x=photoperiod, y=fit)) + 
-  geom_ribbon(data=AZ_data, aes(y=dark_p, ymin=dark_pmin, ymax=dark_pmax), alpha=0.2, fill=AZcolor) +
-  geom_line(aes(y=dark_p), color=AZcolor) 
-
+AZ_poly_plot + CO_poly_plot + plot_layout(guides="collect")
 
 
 #### Temp/ Photo Data ####
