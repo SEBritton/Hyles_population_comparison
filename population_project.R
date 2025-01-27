@@ -8,12 +8,13 @@ library(emmeans) #for post hoc tests
 library(lmerTest) # for extracting p vals from mixed models
 library(lme4) # mixed models
 library(drc) #for threshold models
+library(car) #for Type III Anovas
 library(dplyr)
 
 #read in data
 pop_data <- read.csv(file="pop_data.csv")
-temp_photo_data <- read.csv(file="daylength_data.csv")
-temp_month_data <- read.csv(file="monthly_averages.csv")
+temp_photo_data <- read.csv(file="daylength_temp_data.csv")
+temp_month_data <- read.csv(file="monthly_means.csv")
 
 #modify data as needed
 pop_data <- pop_data |>
@@ -131,11 +132,11 @@ pop_data %>%
 area_mod <- lm(percent_G ~ pop_origin + photoperiod + pop_origin*photoperiod, data=pop_data, na.action = na.exclude)
 
 #check assumptions
-qqnorm(residuals(avg_mod2)) 
-plot(fitted(avg_mod2), residuals(avg_mod2))
+qqnorm(residuals(area_mod)) 
+plot(fitted(area_mod), residuals(area_mod))
 
 #results and post-hoc comparisons 
-anova(area_mod)
+Anova(area_mod, type="III")
 area_mod_compare <- emmeans(area_mod, ~ pop_origin * photoperiod)
 summary(contrast(area_mod_compare, method = "pairwise", adjust = "tukey"))
 
@@ -148,7 +149,7 @@ qqnorm(residuals(darkness_mod))
 plot(fitted(darkness_mod), residuals(darkness_mod))
 
 #results and post-hoc comparisons 
-anova(darkness_mod)
+Anova(darkness_mod, type="III")
 darkness_mod_compare <- emmeans(darkness_mod, ~ pop_origin * photoperiod)
 summary(contrast(darkness_mod_compare, method = "pairwise", adjust = "tukey"))
 
@@ -239,7 +240,7 @@ AIC(CO_linear_dark, CO_polynomial_dark, CO_threshold_dark)
 
 #Treshold figure for AZ percent melanic area
 new_data1 <- expand.grid(
-  photoperiod = seq(10, 16, by = 0.1))
+  photoperiod = seq(10, 16, by=0.1))
 predicted_values1 <- predict(AZ_threshold, newdata = new_data1, interval="confidence")
 predictions1 <- cbind(new_data1, predicted_values1)
 print(predictions1)
@@ -313,41 +314,72 @@ AZ_poly_plot + CO_poly_plot + plot_layout(guides="collect")
 
 #### Temp/ Photo Data ####
 
-daily_max_AZ <- lm(Daily_max ~ Daylength, AZ_temp_data)
-summary(daily_max_AZ)
+pop_photo_compare <- lm(mean_temp ~ daylength_hours * Population, data=temp_photo_data)
+summary(pop_photo_compare)
 
-daily_max_CO<- lm(Daily_max ~ Daylength + I(Daylength^2), CO_temp_data)
-summary(daily_max_CO)
+#AZ
+summary(lm(mean_temp ~ max_temp, AZ_temp_data))
+summary(lm(mean_temp ~ min_temp, AZ_temp_data))
 
-daily_min_AZ <- lm(Daily_min ~ Daylength, AZ_temp_data)
-summary(daily_min_AZ)
+AZ_min <- lm(min_temp ~ daylength_hours, AZ_temp_data)
+AZ_max <- lm(max_temp ~ daylength_hours, AZ_temp_data)
+AZ_mean <- lm(mean_temp ~ daylength_hours, AZ_temp_data)
+summary(AZ_mean)
 
-daily_min_CO <- lm(Daily_min ~ Daylength + I(Daylength^2), CO_temp_data)
-summary(daily_min_CO)
+AZ_min_poly <- lm(min_temp ~ daylength_hours + I(daylength_hours^2), AZ_temp_data)
+AZ_max_poly <- lm(max_temp ~ daylength_hours + I(daylength_hours^2), AZ_temp_data)
+AZ_mean_poly <- lm(mean_temp ~ daylength_hours + I(daylength_hours^2), AZ_temp_data)
 
-daily_max_plot <- ggplot() +
-  geom_point(CO_temp_data, mapping=aes(x=Daylength, y=Daily_max), color=COcolor, alpha=0.8) +
-  geom_point(AZ_temp_data, mapping=aes(x=Daylength, y=Daily_max), color=AZcolor, alpha=0.8)+
-  stat_smooth(CO_temp_data, mapping=aes(x=Daylength, y=Daily_max), color=COcolor, method="lm", formula = y ~ x + I(x^2)) +
-  stat_smooth(AZ_temp_data, mapping=aes(x=Daylength, y=Daily_max), color=AZcolor, method="lm") +
+AIC(AZ_min, AZ_min_poly)
+#no difference
+
+AIC(AZ_max, AZ_max_poly)
+#poly better
+
+AIC(AZ_mean, AZ_mean_poly)
+#no difference
+
+#CO
+summary(lm(mean_temp ~ max_temp, CO_temp_data))
+summary(lm(mean_temp ~ min_temp, CO_temp_data))
+
+CO_min <- lm(min_temp ~ daylength_hours, CO_temp_data)
+CO_max <- lm(max_temp ~ daylength_hours, CO_temp_data)
+CO_mean <- lm(mean_temp ~ daylength_hours, CO_temp_data)
+
+CO_min_poly <- lm(min_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
+CO_max_poly <- lm(max_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
+CO_mean_poly <- lm(mean_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
+summary(CO_mean_poly)
+
+
+AIC(CO_min, CO_min_poly)
+#poly difference
+
+AIC(CO_max, CO_max_poly)
+#poly better
+
+AIC(CO_mean, CO_mean_poly)
+#poly better
+
+predicted_values_AZ <- predict(AZ_mean, newdata = AZ_temp_data, interval="confidence")
+AZ_temp_data <- cbind(AZ_temp_data, predicted_values_AZ)
+
+predicted_values_CO <- predict(CO_mean_poly, newdata = CO_temp_data, interval="confidence")
+CO_temp_data <- cbind(CO_temp_data, predicted_values_CO)
+
+mean_plot<- ggplot() +
+  geom_point(CO_temp_data, mapping=aes(x=daylength_hours, y=mean_temp), color=COcolor, alpha=0.4) +
+  geom_point(AZ_temp_data, mapping=aes(x=daylength_hours, y=mean_temp), color=AZcolor, alpha=0.4)+
+  geom_ribbon(data=AZ_temp_data, aes(x=daylength_hours, y=fit, ymin=lwr, ymax=upr), alpha=0.9, fill=AZcolor) +
+  geom_line(data=AZ_temp_data, aes(x=daylength_hours, y=fit),linetype= "dashed", size=0.8) +
+  geom_ribbon(data=CO_temp_data, aes(x=daylength_hours, y=fit, ymin=lwr, ymax=upr), alpha=0.9, fill=COcolor) +
+  geom_line(data=CO_temp_data, aes(x=daylength_hours, y=fit),linetype="dotted", size=0.8) +
   theme_classic(base_size = 18)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(10.5, 14), y=c(35, 22), label=c(expression("AZ:"~r^2~"=0.44"), expression("CO:"~r^2~"=0.25"))) + 
-  xlab("Photoperiod") +  ylab("Daily maximum\ntemperature (°C)") 
-daily_max_plot 
+  annotate(geom="text", x=c(11, 14), y=c(40, 10), label=c(expression("AZ: p<0.001,"~r^2~"=0.44"), expression("CO: p<0.001,"~r^2~"=0.21"))) + 
+  xlab("Photoperiod") +  ylab("Daily mean\ntemperature (°C)") 
+mean_plot
 
-daily_min_plot <-ggplot() +
-  geom_point(CO_temp_data, mapping=aes(x=Daylength, y=Daily_min), color=COcolor, alpha=0.8) +
-  geom_point(AZ_temp_data, mapping=aes(x=Daylength, y=Daily_min), color=AZcolor, alpha=0.8)+
-  stat_smooth(CO_temp_data, mapping=aes(x=Daylength, y=Daily_min), color=COcolor, method="lm", formula = y ~ x + I(x^2)) +
-  stat_smooth(AZ_temp_data, mapping=aes(x=Daylength, y=Daily_min), color=AZcolor, method="lm") +
-  theme_classic(base_size = 18)+ theme(text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(10.5, 14), y=c(21, 8), label=c(expression("AZ:"~r^2~"=0.41"), expression("CO:"~r^2~"=0.30"))) + 
-  xlab("Photoperiod") +  ylab("Daily minimum\ntemperature (°C)") 
-daily_min_plot
-
-#combine plots with patchwork
-daily_max_plot + daily_min_plot + plot_layout(guides="collect", axes="collect") + 
-  plot_annotation(tag_levels = 'A')
 
 
 #Monthly data plot
@@ -355,11 +387,18 @@ month_order <- c("March", "April", "May", "June", "July", "August", "September",
 
 ggplot(temp_month_data, aes(factor(x=Month, levels=month_order), color=Population, group=Population)) +
   stat_summary(aes(y=Monthly_mean_min), geom="line", linetype="dashed", fun=mean, linewidth=0.8) +
-  stat_summary(aes(y=Monthly_mean_min), fun.data="mean_sd", shape="square", size=0.7) + 
-  stat_summary(aes(y=Monthly_mean_max), geom="line", fun=mean, linewidth=0.8) +
-  stat_summary(aes(y=Monthly_mean_max), fun.data="mean_sd", shape="square", size=0.7) +
+  stat_summary(aes(y=Monthly_mean_min), fun=mean, shape="square", size=0.5) + 
+  stat_summary(aes(y=Monthly_mean_min), fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},geom = "errorbar", width = 0.1) +
+  stat_summary(aes(y=Monthly_mean_max), geom="line", linetype="dotted", fun=mean, linewidth=0.8) +
+  stat_summary(aes(y=Monthly_mean_max), fun=mean, shape="square", size=0.5) +
+  stat_summary(aes(y=Monthly_mean_max), fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},geom = "errorbar", width = 0.1) +
+  stat_summary(aes(y=Monthly_average_mean), geom="line", fun=mean, linewidth=0.8) +
+  stat_summary(aes(y=Monthly_average_mean), fun=mean, shape="square", size=0.5) +
+  stat_summary(aes(y=Monthly_average_mean), fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},geom = "errorbar", width = 0.1) +
+  geom_hline(yintercept=25, linetype="dotted")+
   theme_classic(base_size = 18)+ 
   scale_color_manual(values=colors) +
   theme(legend.position="bottom", text=element_text(family="Times New Roman"), 
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
-  xlab("Month") +  ylab("Average temperature (°C)") 
+  xlab("Month") +  ylab("Mean temperature (°C)") 
+
