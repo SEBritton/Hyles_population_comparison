@@ -69,7 +69,7 @@ darkness<-ggplot(pop_data, aes(x=photoperiod, y=darkness_G)) +
                geom = "errorbar", width = 0.2,position = position_dodge(widt=0.2)) +
   scale_color_manual(values=colors) +
   theme_classic(base_size = 20)+ theme(text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(1, 2, 3, 4), y=c(21.8, 21.5, 20.7, 19.5), label=c("ns", "**", "ns", "ns"), size=5) + 
+  annotate(geom="text", x=c(1, 2, 3, 4), y=c(21.8, 21.5, 20.7, 19.5), label=c("ns", "**", "ns", "*"), size=5) + 
   ylab("Darkness") +  xlab("Photoperiod") + labs(color="Population Origin") +
   ylim(15,22)
 darkness
@@ -217,12 +217,17 @@ summary(AZ_linear_dark)
 CO_linear_dark<-lm(darkness_G~photoperiod_num, data=CO_data)
 summary(CO_linear_dark)
 
+Anova(AZ_linear_dark, CO_linear_dark)
+
 #Polynomial
 AZ_polynomial_dark <- lm(darkness_G ~ photoperiod_num + I(photoperiod_num^2), data=AZ_data)
 summary(AZ_polynomial_dark)
 
 CO_polynomial_dark <- lm(darkness_G ~ photoperiod_num + I(photoperiod_num^2), data=CO_data)
 summary(CO_polynomial_dark)
+
+Anova(AZ_polynomial_dark, CO_polynomial_dark, type="III")
+
 
 #Treshold (log-logistic)
 AZ_threshold_dark <- drm(darkness_G~photoperiod_num, data=AZ_data, fct=LL.4())
@@ -300,7 +305,7 @@ predicted_values4 <- predict(CO_polynomial_dark, newdata = new_data4, interval="
 predictions4 <- cbind(new_data4, predicted_values4)
 print(predictions4) 
 
-CO_poly_plot<-ggplot(data = AZ_data, aes(x = photoperiod_num, y = darkness_G)) +
+CO_poly_plot<-ggplot(data = CO_data, aes(x = photoperiod_num, y = darkness_G)) +
   geom_jitter(width=0.2, color=COcolor, alpha=0.7) +
   geom_ribbon(data=predictions4, aes(x=photoperiod_num, y=fit, ymin=lwr, ymax=upr), alpha=0.2, fill=COcolor) +
   geom_line(data=predictions4, aes(x=photoperiod_num, y=fit), color=COcolor) +
@@ -316,15 +321,16 @@ AZ_poly_plot + CO_poly_plot + plot_layout(guides="collect")
 
 pop_photo_compare <- lm(mean_temp ~ daylength_hours * Population, data=temp_photo_data)
 summary(pop_photo_compare)
+#significant interaction between photoperiod and population
 
 #AZ
-summary(lm(mean_temp ~ max_temp, AZ_temp_data))
-summary(lm(mean_temp ~ min_temp, AZ_temp_data))
+summary(lm(mean_temp ~ max_temp, AZ_temp_data)) #r=0.93
+summary(lm(mean_temp ~ min_temp, AZ_temp_data)) #r=0.93
 
 AZ_min <- lm(min_temp ~ daylength_hours, AZ_temp_data)
 AZ_max <- lm(max_temp ~ daylength_hours, AZ_temp_data)
 AZ_mean <- lm(mean_temp ~ daylength_hours, AZ_temp_data)
-summary(AZ_mean)
+summary(AZ_max)
 
 AZ_min_poly <- lm(min_temp ~ daylength_hours + I(daylength_hours^2), AZ_temp_data)
 AZ_max_poly <- lm(max_temp ~ daylength_hours + I(daylength_hours^2), AZ_temp_data)
@@ -340,8 +346,8 @@ AIC(AZ_mean, AZ_mean_poly)
 #no difference
 
 #CO
-summary(lm(mean_temp ~ max_temp, CO_temp_data))
-summary(lm(mean_temp ~ min_temp, CO_temp_data))
+summary(lm(mean_temp ~ max_temp, CO_temp_data)) #r=0.84
+summary(lm(mean_temp ~ min_temp, CO_temp_data)) #r=0.72
 
 CO_min <- lm(min_temp ~ daylength_hours, CO_temp_data)
 CO_max <- lm(max_temp ~ daylength_hours, CO_temp_data)
@@ -350,7 +356,7 @@ CO_mean <- lm(mean_temp ~ daylength_hours, CO_temp_data)
 CO_min_poly <- lm(min_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
 CO_max_poly <- lm(max_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
 CO_mean_poly <- lm(mean_temp ~ daylength_hours + I(daylength_hours^2), CO_temp_data)
-summary(CO_mean_poly)
+summary(CO_max_poly)
 
 
 AIC(CO_min, CO_min_poly)
@@ -362,30 +368,97 @@ AIC(CO_max, CO_max_poly)
 AIC(CO_mean, CO_mean_poly)
 #poly better
 
-predicted_values_AZ <- predict(AZ_mean, newdata = AZ_temp_data, interval="confidence")
+#add predicted values to data set 
+predicted_values_AZ <- predict(AZ_mean, newdata = AZ_temp_data, interval="confidence", level=0.95)
 AZ_temp_data <- cbind(AZ_temp_data, predicted_values_AZ)
+AZ_temp_data <- AZ_temp_data |>
+  rename('mean_predict' = 'fit') |>
+  rename('mean_lower' = 'lwr') |>
+  rename('mean_upper' = 'upr')
 
-predicted_values_CO <- predict(CO_mean_poly, newdata = CO_temp_data, interval="confidence")
+predicted_values_AZ2 <- predict(AZ_min, newdata = AZ_temp_data, interval="confidence", level=0.95)
+AZ_temp_data <- cbind(AZ_temp_data, predicted_values_AZ2)
+AZ_temp_data <- AZ_temp_data |>
+  rename('min_predict' = 'fit') |>
+  rename('min_lower' = 'lwr') |>
+  rename('min_upper' = 'upr')
+
+predicted_values_AZ3 <- predict(AZ_max, newdata = AZ_temp_data, interval="confidence", level=0.95)
+AZ_temp_data <- cbind(AZ_temp_data, predicted_values_AZ3)
+AZ_temp_data <- AZ_temp_data |>
+  rename('max_predict' = 'fit') |>
+  rename('max_lower' = 'lwr') |>
+  rename('max_upper' = 'upr')
+
+predicted_values_CO <- predict(CO_mean_poly, newdata = CO_temp_data, interval="confidence", level=0.95)
 CO_temp_data <- cbind(CO_temp_data, predicted_values_CO)
+CO_temp_data <- CO_temp_data |>
+  rename('mean_predict' = 'fit') |>
+  rename('mean_lower' = 'lwr') |>
+  rename('mean_upper' = 'upr')
 
+predicted_values_CO2 <- predict(CO_min_poly, newdata = CO_temp_data, interval="confidence", level=0.95)
+CO_temp_data <- cbind(CO_temp_data, predicted_values_CO2)
+CO_temp_data <- CO_temp_data |>
+  rename('min_predict' = 'fit') |>
+  rename('min_lower' = 'lwr') |>
+  rename('min_upper' = 'upr')
+
+predicted_values_CO3 <- predict(CO_max_poly, newdata = CO_temp_data, interval="confidence", level=0.95)
+CO_temp_data <- cbind(CO_temp_data, predicted_values_CO3)
+CO_temp_data <- CO_temp_data |>
+  rename('max_predict' = 'fit') |>
+  rename('max_lower' = 'lwr') |>
+  rename('max_upper' = 'upr')
+
+
+#plots
 mean_plot<- ggplot() +
   geom_point(CO_temp_data, mapping=aes(x=daylength_hours, y=mean_temp), color=COcolor, alpha=0.4) +
   geom_point(AZ_temp_data, mapping=aes(x=daylength_hours, y=mean_temp), color=AZcolor, alpha=0.4)+
-  geom_ribbon(data=AZ_temp_data, aes(x=daylength_hours, y=fit, ymin=lwr, ymax=upr), alpha=0.9, fill=AZcolor) +
-  geom_line(data=AZ_temp_data, aes(x=daylength_hours, y=fit),linetype= "dashed", size=0.8) +
-  geom_ribbon(data=CO_temp_data, aes(x=daylength_hours, y=fit, ymin=lwr, ymax=upr), alpha=0.9, fill=COcolor) +
-  geom_line(data=CO_temp_data, aes(x=daylength_hours, y=fit),linetype="dotted", size=0.8) +
+  geom_ribbon(data=AZ_temp_data, aes(x=daylength_hours, y=mean_predict, ymin=mean_lower, ymax=mean_upper), alpha=0.7, fill=AZcolor) +
+  geom_line(data=AZ_temp_data, aes(x=daylength_hours, y=mean_predict),linetype= "dashed", size=0.8) +
+  geom_ribbon(data=CO_temp_data, aes(x=daylength_hours, y=mean_predict, ymin=mean_lower, ymax=mean_upper), alpha=0.7, fill=COcolor) +
+  geom_line(data=CO_temp_data, aes(x=daylength_hours, y=mean_predict),linetype="dotted", size=0.8) +
   theme_classic(base_size = 18)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
-  annotate(geom="text", x=c(11, 14), y=c(40, 10), label=c(expression("AZ: p<0.001,"~r^2~"=0.44"), expression("CO: p<0.001,"~r^2~"=0.21"))) + 
+  annotate(geom="text", x=c(11, 14), y=c(35, 10), label=c(expression("AZ: p<0.001,"~r^2~"=0.44"), expression("CO: p<0.001,"~r^2~"=0.21"))) + 
   xlab("Photoperiod") +  ylab("Daily mean\ntemperature (°C)") 
 mean_plot
 
+#min plot
+min_plot<- ggplot() +
+  geom_point(CO_temp_data, mapping=aes(x=daylength_hours, y=min_temp), color=COcolor, alpha=0.4) +
+  geom_point(AZ_temp_data, mapping=aes(x=daylength_hours, y=min_temp), color=AZcolor, alpha=0.4)+
+  geom_ribbon(data=AZ_temp_data, aes(x=daylength_hours, y=min_predict, ymin=min_lower, ymax=min_upper), alpha=0.7, fill=AZcolor) +
+  geom_line(data=AZ_temp_data, aes(x=daylength_hours, y=min_predict),linetype= "dashed", size=0.8) +
+  geom_ribbon(data=CO_temp_data, aes(x=daylength_hours, y=min_predict, ymin=min_lower, ymax=min_upper), alpha=0.7, fill=COcolor) +
+  geom_line(data=CO_temp_data, aes(x=daylength_hours, y=min_predict),linetype="dotted", size=0.8) +
+  theme_classic(base_size = 18)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
+  annotate(geom="text", x=c(11, 14), y=c(30, 5), label=c(expression("AZ: p<0.001,"~r^2~"=0.40"), expression("CO: p<0.001,"~r^2~"=0.24"))) + 
+  xlab("Photoperiod") +  ylab("Daily minimum\ntemperature (°C)") 
+min_plot
+
+
+#max plot
+max_plot<- ggplot() +
+  geom_point(CO_temp_data, mapping=aes(x=daylength_hours, y=max_temp), color=COcolor, alpha=0.4) +
+  geom_point(AZ_temp_data, mapping=aes(x=daylength_hours, y=max_temp), color=AZcolor, alpha=0.4)+
+  geom_ribbon(data=AZ_temp_data, aes(x=daylength_hours, y=max_predict, ymin=max_lower, ymax=max_upper), alpha=0.7, fill=AZcolor) +
+  geom_line(data=AZ_temp_data, aes(x=daylength_hours, y=max_predict),linetype= "dashed", size=0.8) +
+  geom_ribbon(data=CO_temp_data, aes(x=daylength_hours, y=max_predict, ymin=max_lower, ymax=max_upper), alpha=0.7, fill=COcolor) +
+  geom_line(data=CO_temp_data, aes(x=daylength_hours, y=max_predict),linetype="dotted", size=0.8) +
+  theme_classic(base_size = 18)+ theme(legend.position="none", text=element_text(family="Times New Roman")) + 
+  annotate(geom="text", x=c(11, 14), y=c(42, 12), label=c(expression("AZ: p<0.001,"~r^2~"=0.42"), expression("CO: p<0.001,"~r^2~"=0.12"))) + 
+  xlab("Photoperiod") +  ylab("Daily maximum\ntemperature (°C)") 
+max_plot
+
+min_plot + max_plot  +plot_annotation(tag_levels="A")
 
 
 #Monthly data plot
 month_order <- c("March", "April", "May", "June", "July", "August", "September", "October", "November")
 
-ggplot(temp_month_data, aes(factor(x=Month, levels=month_order), color=Population, group=Population)) +
+month_plot<- ggplot(temp_month_data, aes(factor(x=Month, levels=month_order), color=Population, group=Population)) +
   stat_summary(aes(y=Monthly_mean_min), geom="line", linetype="dashed", fun=mean, linewidth=0.8) +
   stat_summary(aes(y=Monthly_mean_min), fun=mean, shape="square", size=0.5) + 
   stat_summary(aes(y=Monthly_mean_min), fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},geom = "errorbar", width = 0.1) +
@@ -396,9 +469,19 @@ ggplot(temp_month_data, aes(factor(x=Month, levels=month_order), color=Populatio
   stat_summary(aes(y=Monthly_average_mean), fun=mean, shape="square", size=0.5) +
   stat_summary(aes(y=Monthly_average_mean), fun.data = function(y) {data.frame(y = mean(y), ymin = mean(y) - sd(y), ymax = mean(y) + sd(y))},geom = "errorbar", width = 0.1) +
   geom_hline(yintercept=25, linetype="dotted")+
+  geom_segment(aes(x = 9.25, xend = 9.25, y = 9.5, yend = 32), size = 0.8, color=COcolor) +  
+  geom_segment(aes(x = 9.1, xend = 9.25, y = 32, yend = 32), size = 0.8, color=COcolor) +  
+  geom_segment(aes(x = 9.1, xend = 9.25, y = 9.5, yend = 9.5), size = 0.8, color=COcolor) +   
+  geom_segment(aes(x = 9.45, xend = 9.45, y = 9.5, yend = 40), size = 0.8, color=AZcolor) +  
+  geom_segment(aes(x = 9.3, xend = 9.45, y = 40, yend = 40), size = 0.8, color=AZcolor) +  
+  geom_segment(aes(x = 9.3, xend = 9.45, y = 9.5, yend = 9.5), size = 0.8, color=AZcolor) + 
+  annotate(geom="text", x=c(8.6, 8.6), y=c(35, 39), label = c("CO Range = 23.89°C", "AZ Range = 36.11°C"), 
+           color=c(COcolor, AZcolor), size=(3)) +
   theme_classic(base_size = 18)+ 
   scale_color_manual(values=colors) +
   theme(legend.position="bottom", text=element_text(family="Times New Roman"), 
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + 
   xlab("Month") +  ylab("Mean temperature (°C)") 
+month_plot
 
+month_plot/mean_plot + plot_annotation(tag_levels = 'A')
